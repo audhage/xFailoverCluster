@@ -43,6 +43,11 @@ function Get-TargetResource
         [System.String[]]
         $IgnoreNetwork,
 
+        [Parameter()]
+        [ValidateSet("Automatic", "Singleton", "Distributed")]
+        [System.String[]]
+        $ManagementPointNetworkType = "Automatic",
+
         [Parameter(Mandatory = $true)]
         [System.Management.Automation.PSCredential]
         $DomainAdministratorCredential
@@ -55,6 +60,20 @@ function Get-TargetResource
     {
         $errorMessage = $script:localizedData.TargetNodeDomainMissing
         New-InvalidOperationException -Message $errorMessage
+    }
+
+    $currentManagementPointNetworkType = $ManagementPointNetworkType
+    if ($currentManagementPointNetworkType -ne "Automatic")
+    {
+        $clusterDnnResource = Get-ClusterResource | Where-Object -FilterScript { $_.ResourceType -eq "Distributed Network Name" }
+        if ($clusterDnnResource)
+        {
+            $currentManagementPointNetworkType = "Distributed"
+        }
+        else
+        {
+            $currentManagementPointNetworkType = "Singleton"
+        }
     }
 
     try
@@ -85,6 +104,7 @@ function Get-TargetResource
         Name                          = $Name
         StaticIPAddress               = $address.Value
         IgnoreNetwork                 = $IgnoreNetwork
+        ManagementPointNetworkType    = $currentManagementPointNetworkType
         DomainAdministratorCredential = $DomainAdministratorCredential
     }
 }
@@ -136,6 +156,11 @@ function Set-TargetResource
         [System.String[]]
         $IgnoreNetwork,
 
+        [Parameter()]
+        [ValidateSet("Automatic", "Singleton", "Distributed")]
+        [System.String[]]
+        $ManagementPointNetworkType = "Automatic",
+
         [Parameter(Mandatory = $true)]
         [System.Management.Automation.PSCredential]
         $DomainAdministratorCredential
@@ -186,11 +211,16 @@ function Set-TargetResource
                 $newClusterParameters.Force = $true
             }
 
+            if ((Get-Command New-Cluster).Parameters['ManagementPointNetworkType'])
+            {
+                $newClusterParameters.ManagementPointNetworkType = $ManagementPointNetworkType
+            }
+
             if ($StaticIPAddress)
             {
                 $newClusterParameters += @{
                     StaticAddress = $StaticIPAddress
-                  }
+                }
             }
 
             if ($PSBoundParameters.ContainsKey('IgnoreNetwork'))
@@ -301,6 +331,11 @@ function Test-TargetResource
         [Parameter()]
         [System.String[]]
         $IgnoreNetwork,
+
+        [Parameter()]
+        [ValidateSet("Automatic", "Singleton", "Distributed")]
+        [System.String[]]
+        $ManagementPointNetworkType = "Automatic",
 
         [Parameter(Mandatory = $true)]
         [System.Management.Automation.PSCredential]
